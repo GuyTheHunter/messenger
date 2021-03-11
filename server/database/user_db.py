@@ -1,0 +1,87 @@
+from typing import Dict
+from pymongo.collection import Collection
+
+from server.crypto import UserCrypto
+from server.config import DataBaseUserParameters
+from server.exceptions import UserNameAlreadyTaken, UserInvalidArguments, UserNotFound
+
+
+class UserDB:
+    def __init__(self, collection: Collection):
+        self.collection = collection
+
+    def login(self, username: str, password: str) -> str:
+        """
+        Returns user's token if registered
+
+        Args:
+            username (str): User's name
+            password (str): User's password
+
+        Returns:
+            str: User's token
+
+        Raises:
+            UserNotFound: When user is not found
+            UserInvalidArguments: When invalid parameters are given
+        """
+        if any([len(arg) == 0 for arg in (username, password)]):
+            raise UserInvalidArguments('Please provide a valid parameters')
+
+        result = self.collection.find_one(self.__build_document_object(username, password))
+
+        if not result:
+            raise UserNotFound('Not such user')
+
+        return str(result[DataBaseUserParameters.ID])
+
+    def register(self, username: str, password: str) -> str:
+        """
+        Register a user to the db
+
+        Args:
+            username (str): User's name
+            password (str): User's password
+
+        Returns:
+            str: User's token
+
+        Raises:
+            UserNameAlreadyTaken: When user's name already
+            UserInvalidArguments: When invalid parameters are given
+        """
+        if any([len(arg) == 0 for arg in (username, password)]):
+            raise UserInvalidArguments('Please provide a valid parameters')
+
+        if self.__is_user_name_taken(username):
+            raise UserNameAlreadyTaken(f'{username} is already taken')
+
+        result = self.collection.insert_one(self.__build_document_object(username, password))
+        return str(result.inserted_id)
+
+    def __is_user_name_taken(self, username: str) -> bool:
+        """
+        Checks whether the given name is already taken
+
+        Args:
+            username (str): User's name to be checked
+
+        Returns:
+            bool whether the given user's name already taken
+        """
+        result = self.collection.find_one({DataBaseUserParameters.USERNAME: username})
+        return bool(result)
+
+    @staticmethod
+    def __build_document_object(username: str, password: str) -> Dict:
+        """
+        Creates a user mongodb document object
+
+        Args:
+            username (str): User's name
+            password (str): User's password
+
+        Returns:
+            dict: User mongodb document object
+        """
+        return {DataBaseUserParameters.USERNAME: username, DataBaseUserParameters.PASSWORD: UserCrypto.encode(password)}
