@@ -13,9 +13,10 @@ class DataBaseCluster:
 
 
 class DataBaseUserParameters:
+    ID = '_id'
+    PROFILE = 'profile'
     USERNAME = 'username'
     PASSWORD = 'password'
-    ID = '_id'
 
 
 class ResponseParameter:
