@@ -1,5 +1,5 @@
-from typing import Dict
-from pymongo.collection import Collection
+from typing import Dict, Tuple
+from pymongo.collection import Collection, ObjectId
 
 from server.crypto import UserCrypto
 from server.config import DataBaseUserParameters
@@ -59,6 +59,23 @@ class UserDB:
         result = self.collection.insert_one(self.__build_document_object(username, password))
         return str(result.inserted_id)
 
+    def get_user_data_by_id(self, user_id) -> Tuple[str, str, str or None]:
+        """
+        Finds the user's information
+
+        Args:
+            user_id (str): User's id to search for
+
+        Returns:
+            tuple[str, str, bytes or None]
+        """
+        result = self.collection.find_one({DataBaseUserParameters.ID: ObjectId(user_id)})
+        if not result:
+            raise UserNotFound(f'User id "{user_id}" was not found')
+
+        username, profile = result[DataBaseUserParameters.USERNAME], result.get(DataBaseUserParameters.PROFILE)
+        return user_id, username, profile
+
     def __is_user_name_taken(self, username: str) -> bool:
         """
         Checks whether the given name is already taken
@@ -84,4 +101,8 @@ class UserDB:
         Returns:
             dict: User mongodb document object
         """
-        return {DataBaseUserParameters.USERNAME: username, DataBaseUserParameters.PASSWORD: UserCrypto.encode(password)}
+        return {DataBaseUserParameters.USERNAME: username,
+                DataBaseUserParameters.PASSWORD: UserCrypto.encode(username, password)}
+
+    def reset_db(self):
+        self.collection.delete_many({})
